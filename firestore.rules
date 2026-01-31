@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isInHouse(houseId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.houseId == houseId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    // Houses collection
+    match /houses/{houseId} {
+      allow read: if isInHouse(houseId);
+      allow create: if isAuthenticated();
+      allow update: if isInHouse(houseId);
+      allow delete: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // Chores collection
+    match /chores/{choreId} {
+      allow read: if isInHouse(resource.data.houseId);
+      allow create: if isAuthenticated() && isInHouse(request.resource.data.houseId);
+      allow update: if isInHouse(resource.data.houseId);
+      allow delete: if isInHouse(resource.data.houseId);
+    }
+
+    // Assignments collection
+    match /assignments/{assignmentId} {
+      allow read: if isInHouse(resource.data.houseId);
+      allow create: if isAuthenticated();
+      allow update: if isInHouse(resource.data.houseId);
+      allow delete: if false;
+    }
+
+    // Shopping items collection
+    match /shoppingItems/{itemId} {
+      allow read: if isInHouse(resource.data.houseId);
+      allow create: if isAuthenticated() && isInHouse(request.resource.data.houseId);
+      allow update: if isInHouse(resource.data.houseId);
+      allow delete: if isInHouse(resource.data.houseId);
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
