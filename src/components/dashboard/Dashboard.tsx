@@ -102,6 +102,17 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              {house?.inviteCode && (
+                <button
+                  onClick={copyInviteCode}
+                  className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+                  title="Copy invite code"
+                >
+                  <span className="text-sm font-mono font-bold text-black dark:text-white">{house.inviteCode}</span>
+                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600 dark:text-gray-400" />}
+                </button>
+              )}
+              
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
