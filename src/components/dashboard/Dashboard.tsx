@@ -4,7 +4,7 @@ import { useHouse } from '../../contexts/HouseContext';
 import { 
   Home, CheckCircle2, Calendar, ShoppingCart, 
   LogOut, Moon, Sun, Trophy, Flame, X,
-  Plus, History
+  Plus, History, Copy, Check
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, isWithinInterval, addWeeks } from 'date-fns';
 import type { Assignment, User, Chore, ShoppingItem } from '../../types';
@@ -21,6 +21,7 @@ export const Dashboard: React.FC = () => {
   const [showAddChore, setShowAddChore] = useState(false);
   const [showAddShopping, setShowAddShopping] = useState(false);
   const [notifications, setNotifications] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (darkMode) {
@@ -53,6 +54,14 @@ export const Dashboard: React.FC = () => {
   const handleLeaveHouse = async () => {
     if (confirm('Are you sure you want to leave this house?')) {
       await leaveHouse();
+    }
+  };
+
+  const copyInviteCode = () => {
+    if (house?.inviteCode) {
+      navigator.clipboard.writeText(house.inviteCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -112,6 +121,28 @@ export const Dashboard: React.FC = () => {
                     <p className="font-medium text-black dark:text-white">{userData?.name}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">{userData?.email}</p>
                   </div>
+                  {house?.inviteCode && (
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Invite Code
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 bg-gray-100 dark:bg-gray-900 px-3 py-2 font-mono text-lg font-bold text-black dark:text-white">
+                          {house.inviteCode}
+                        </code>
+                        <button
+                          onClick={copyInviteCode}
+                          className="p-2 bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+                          title="Copy invite code"
+                        >
+                          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Share this code with roommates to join
+                      </p>
+                    </div>
+                  )}
                   <button
                     onClick={handleLeaveHouse}
                     className="w-full px-4 py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900 flex items-center gap-3 text-sm border-b border-gray-200 dark:border-gray-800"
