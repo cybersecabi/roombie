@@ -50,7 +50,7 @@ const generateInviteCode = () => {
 };
 
 export const HouseProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { userData, refreshUserData } = useAuth();
+  const { userData, currentUser, refreshUserData } = useAuth();
   const [house, setHouse] = useState<House | null>(null);
   const [roommates, setRoommates] = useState<User[]>([]);
   const [chores, setChores] = useState<Chore[]>([]);
@@ -160,7 +160,9 @@ export const HouseProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [userData?.houseId]);
 
   const createHouse = async (name: string) => {
-    if (!userData) throw new Error('User not authenticated');
+    // Use userData or currentUser as fallback
+    const userId = userData?.id || currentUser?.uid;
+    if (!userId) throw new Error('User not authenticated');
     
     const houseId = doc(collection(db, 'houses')).id;
     const inviteCode = generateInviteCode();
@@ -168,9 +170,9 @@ export const HouseProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const houseData: Omit<House, 'id'> = {
       name,
       inviteCode,
-      createdBy: userData.id,
+      createdBy: userId,
       createdAt: new Date(),
-      roommates: [userData.id],
+      roommates: [userId],
     };
     
     await setDoc(doc(db, 'houses', houseId), {
@@ -178,14 +180,16 @@ export const HouseProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       createdAt: serverTimestamp(),
     });
     
-    await updateDoc(doc(db, 'users', userData.id), { houseId });
+    await updateDoc(doc(db, 'users', userId), { houseId });
     await refreshUserData();
     
     return inviteCode;
   };
 
   const joinHouse = async (inviteCode: string) => {
-    if (!userData) throw new Error('User not authenticated');
+    // Use userData or currentUser as fallback
+    const userId = userData?.id || currentUser?.uid;
+    if (!userId) throw new Error('User not authenticated');
     
     const q = query(collection(db, 'houses'), where('inviteCode', '==', inviteCode.toUpperCase()));
     const snapshot = await getDocs(q);
@@ -198,10 +202,10 @@ export const HouseProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const houseId = houseDoc.id;
     
     await updateDoc(doc(db, 'houses', houseId), {
-      roommates: arrayUnion(userData.id),
+      roommates: arrayUnion(userId),
     });
     
-    await updateDoc(doc(db, 'users', userData.id), { houseId });
+    await updateDoc(doc(db, 'users', userId), { houseId });
     await refreshUserData();
   };
 

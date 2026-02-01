@@ -77,6 +77,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       ...userData,
       createdAt: serverTimestamp(),
     });
+    
+    // Immediately fetch user data so it's available for house creation
+    await fetchUserData(user);
   };
 
   const logout = async () => {
