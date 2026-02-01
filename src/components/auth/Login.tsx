@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ArrowRight } from 'lucide-react';
+import { SweepingPreloader } from './SweepingPreloader';
 
 interface LoginProps {
   onToggle: () => void;
@@ -11,7 +12,18 @@ export const Login: React.FC<LoginProps> = ({ onToggle }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [preloading, setPreloading] = useState(true);
   const { login } = useAuth();
+
+  // Show preloader on initial load
+  React.useEffect(() => {
+    const timer = setTimeout(() => setPreloading(false), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (preloading) {
+    return <SweepingPreloader text="Loading..." />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,10 +104,7 @@ export const Login: React.FC<LoginProps> = ({ onToggle }) => {
             className="w-full py-4 bg-black dark:bg-white text-white dark:text-black font-medium flex items-center justify-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
           >
             {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Signing in...</span>
-              </>
+              <span>Sweeping things up...</span>
             ) : (
               <>
                 <span>Sign In</span>
