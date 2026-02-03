@@ -1,17 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHouse } from '../../contexts/HouseContext';
-import { 
-  Home, CheckCircle2, Calendar, ShoppingCart, 
-  LogOut, Moon, Sun, Trophy, Flame, X,
-  Plus, History, Copy, Check
+import {
+  Home,
+  CheckCircle2,
+  Calendar,
+  ShoppingCart,
+  Trophy,
+  History,
+  LogOut,
+  Moon,
+  Sun,
+  Copy,
+  Check,
+  Menu,
+  X as Close
 } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, isWithinInterval, addWeeks } from 'date-fns';
-import type { Assignment, User, Chore, ShoppingItem } from '../../types';
+
+// Import Views
+import { DashboardHome, ChoresView } from './views/DashboardViews';
+import { LeaderboardView } from './views/LeaderboardView';
+import { CalendarView } from './views/CalendarView';
+import { HistoryView } from './views/HistoryView';
+
+// Import Modals
+import { AddChoreModal, AddShoppingModal } from './modals';
 
 export const Dashboard: React.FC = () => {
   const { userData, logout } = useAuth();
-  const { house, roommates, chores, assignments, shoppingList, completeAssignment, addShoppingItem, purchaseItem, leaveHouse } = useHouse();
+  const {
+    house,
+    roommates,
+    chores,
+    assignments,
+    shoppingList,
+    completeAssignment,
+    addShoppingItem,
+    purchaseItem,
+    leaveHouse,
+  } = useHouse();
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'chores' | 'calendar' | 'shopping' | 'leaderboard' | 'history'>('dashboard');
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
@@ -22,28 +50,49 @@ export const Dashboard: React.FC = () => {
   const [showAddShopping, setShowAddShopping] = useState(false);
   const [notifications, setNotifications] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Apply dark mode class on mount and when darkMode changes
   useEffect(() => {
+    const root = document.documentElement;
     if (darkMode) {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
+      root.style.colorScheme = 'dark';
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
+      root.style.colorScheme = 'light';
     }
     localStorage.setItem('darkMode', String(darkMode));
   }, [darkMode]);
 
-  const currentAssignments = assignments.filter(a => 
-    isWithinInterval(new Date(), { start: a.weekStart, end: a.weekEnd })
-  );
+  // Ensure dark mode is applied on initial mount (handles SSR/hydration issues)
+  useEffect(() => {
+    const root = document.documentElement;
+    const saved = localStorage.getItem('darkMode');
+    const isDark = saved !== null ? saved === 'true' : window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-  const myAssignments = currentAssignments.filter(a => a.userId === userData?.id);
-  const myPendingAssignments = myAssignments.filter(a => a.status === 'pending');
+    if (isDark) {
+      root.classList.add('dark');
+      root.style.colorScheme = 'dark';
+    } else {
+      root.classList.remove('dark');
+      root.style.colorScheme = 'light';
+    }
+  }, []);
+
+  const currentAssignments = assignments.filter((a) => {
+    const now = new Date();
+    return a.weekStart <= now && a.weekEnd >= now;
+  });
+
+  const myAssignments = currentAssignments.filter((a) => a.userId === userData?.id);
+  const myPendingAssignments = myAssignments.filter((a) => a.status === 'pending');
 
   const handleComplete = async (assignmentId: string) => {
     await completeAssignment(assignmentId);
-    setNotifications(prev => [...prev, 'Task completed']);
+    setNotifications((prev) => [...prev, 'Task completed! 🎉']);
     setTimeout(() => {
-      setNotifications(prev => prev.slice(1));
+      setNotifications((prev) => prev.slice(1));
     }, 3000);
   };
 
@@ -75,94 +124,120 @@ export const Dashboard: React.FC = () => {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100'}`}>
+      {/* Ambient background effects - only in dark mode */}
+      {darkMode && (
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
+        </div>
+      )}
+
       {/* Notifications */}
-      <div className="fixed top-4 right-4 z-50 space-y-2">
+      <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
         {notifications.map((notif, idx) => (
-          <div key={idx} className="bg-black dark:bg-white text-white dark:text-black px-6 py-3 border border-black dark:border-white animate-fade-in">
+          <div
+            key={idx}
+            className="pointer-events-auto bg-gradient-to-r from-violet-500 to-purple-600 text-white px-6 py-3 rounded-xl shadow-xl shadow-violet-500/25 flex items-center gap-2"
+            style={{ animation: 'slideIn 0.3s ease-out' }}
+          >
+            <CheckCircle2 className="w-5 h-5" />
             {notif}
           </div>
         ))}
       </div>
 
       {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+      <header className={`sticky top-0 z-40 backdrop-blur-xl border-b transition-colors duration-300 ${darkMode ? 'bg-zinc-950/80 border-white/10' : 'bg-white/80 border-gray-200'}`}>
+        <div className="max-w-7xl mx-auto px-4 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-black dark:bg-white flex items-center justify-center">
-                <Home className="w-5 h-5 text-white dark:text-black" />
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/25">
+                <Home className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <h1 className="font-bold text-black dark:text-white text-lg">{house?.name || 'Roommate Manager'}</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="hidden sm:block">
+                <h1 className={`font-bold text-lg transition-colors ${darkMode ? 'text-white' : 'text-gray-900'}`}>{house?.name || 'Roommate Manager'}</h1>
+                <p className={`text-xs transition-colors ${darkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
                   {roommates.length} {roommates.length === 1 ? 'roommate' : 'roommates'}
                 </p>
               </div>
             </div>
 
+            {/* Right side actions */}
             <div className="flex items-center gap-2">
+              {/* Invite code */}
               {house?.inviteCode && (
                 <button
                   onClick={copyInviteCode}
-                  className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+                  className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl transition-colors ${darkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'}`}
                   title="Copy invite code"
                 >
-                  <span className="text-sm font-mono font-bold text-black dark:text-white">{house.inviteCode}</span>
-                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600 dark:text-gray-400" />}
+                  <span className={`text-sm font-mono font-bold transition-colors ${darkMode ? 'text-white' : 'text-gray-900'}`}>{house.inviteCode}</span>
+                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className={`w-4 h-4 transition-colors ${darkMode ? 'text-zinc-400' : 'text-gray-500'}`} />}
                 </button>
               )}
-              
+
+              {/* Theme toggle */}
               <button
                 onClick={() => setDarkMode(!darkMode)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                className={`p-2.5 rounded-xl transition-colors ${darkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'}`}
               >
-                {darkMode ? <Sun className="w-5 h-5 text-white" /> : <Moon className="w-5 h-5 text-black" />}
+                {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-gray-600" />}
               </button>
-              
-              <div className="relative group">
-                <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
-                  <div className="w-8 h-8 bg-black dark:bg-white flex items-center justify-center text-white dark:text-black font-semibold text-sm">
+
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className={`lg:hidden p-2.5 rounded-xl transition-colors ${darkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'}`}
+              >
+                {mobileMenuOpen ? <Close className={`w-5 h-5 ${darkMode ? 'text-zinc-400' : 'text-gray-600'}`} /> : <Menu className={`w-5 h-5 ${darkMode ? 'text-zinc-400' : 'text-gray-600'}`} />}
+              </button>
+
+              {/* User menu */}
+              <div className="relative group hidden lg:block">
+                <button className={`flex items-center gap-2 p-1.5 pr-3 rounded-xl transition-colors ${darkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'}`}>
+                  <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
                     {userData?.name?.charAt(0).toUpperCase()}
                   </div>
+                  <span className={`text-sm font-medium transition-colors ${darkMode ? 'text-white' : 'text-gray-900'}`}>{userData?.name?.split(' ')[0]}</span>
                 </button>
-                
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-black border border-gray-200 dark:border-gray-800 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-                    <p className="font-medium text-black dark:text-white">{userData?.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{userData?.email}</p>
+
+                {/* Dropdown */}
+                <div className={`absolute right-0 top-full mt-2 w-64 rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden border ${darkMode ? 'glass-card border-white/10' : 'bg-white border-gray-200'}`}>
+                  <div className={`p-4 border-b ${darkMode ? 'border-white/10' : 'border-gray-200'}`}>
+                    <p className={`font-medium transition-colors ${darkMode ? 'text-white' : 'text-gray-900'}`}>{userData?.name}</p>
+                    <p className={`text-sm transition-colors ${darkMode ? 'text-zinc-500' : 'text-gray-500'}`}>{userData?.email}</p>
                   </div>
+
                   {house?.inviteCode && (
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                        Invite Code
-                      </p>
+                    <div className={`p-4 border-b ${darkMode ? 'border-white/10' : 'border-gray-200'}`}>
+                      <p className={`text-xs font-medium uppercase tracking-wider mb-2 ${darkMode ? 'text-zinc-600' : 'text-gray-500'}`}>Invite Code</p>
                       <div className="flex items-center gap-2">
-                        <code className="flex-1 bg-gray-100 dark:bg-gray-900 px-3 py-2 font-mono text-lg font-bold text-black dark:text-white">
+                        <code className={`flex-1 px-3 py-2 font-mono text-lg font-bold rounded-lg ${darkMode ? 'bg-white/5 text-white' : 'bg-gray-100 text-gray-900'}`}>
                           {house.inviteCode}
                         </code>
                         <button
                           onClick={copyInviteCode}
-                          className="p-2 bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+                          className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-lg hover:opacity-90 transition-opacity"
                           title="Copy invite code"
                         >
                           {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         </button>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        Share this code with roommates to join
-                      </p>
                     </div>
                   )}
+
                   <button
                     onClick={handleLeaveHouse}
-                    className="w-full px-4 py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900 flex items-center gap-3 text-sm border-b border-gray-200 dark:border-gray-800"
+                    className={`w-full px-4 py-3 text-left flex items-center gap-3 text-sm transition-colors ${darkMode ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
                   >
                     <LogOut className="w-4 h-4" /> Leave House
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="w-full px-4 py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900 flex items-center gap-3 text-sm"
+                    className={`w-full px-4 py-3 text-left flex items-center gap-3 text-sm transition-colors ${darkMode ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
                   >
                     <LogOut className="w-4 h-4" /> Sign Out
                   </button>
@@ -173,19 +248,77 @@ export const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      {/* Navigation */}
-      <nav className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex gap-1 overflow-x-auto">
+      {/* Mobile Navigation */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div
+            className={`absolute inset-0 backdrop-blur-sm ${darkMode ? 'bg-black/80' : 'bg-gray-900/50'}`}
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className={`absolute inset-y-0 left-0 w-64 p-6 space-y-2 border-r ${darkMode ? 'glass-card border-white/10' : 'bg-white border-gray-200'}`}>
+            <div className={`flex items-center gap-3 mb-6 pb-4 border-b ${darkMode ? 'border-white/10' : 'border-gray-200'}`}>
+              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <Home className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className={`font-medium transition-colors ${darkMode ? 'text-white' : 'text-gray-900'}`}>{userData?.name}</p>
+                <p className={`text-xs transition-colors ${darkMode ? 'text-zinc-500' : 'text-gray-500'}`}>{house?.name}</p>
+              </div>
+            </div>
+
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setActiveTab(id);
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                  activeTab === id
+                    ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white'
+                    : darkMode ? 'text-zinc-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                {label}
+              </button>
+            ))}
+
+            <div className={`pt-4 mt-4 border-t space-y-2 ${darkMode ? 'border-white/10' : 'border-gray-200'}`}>
+              <button
+                onClick={handleLeaveHouse}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${darkMode ? 'text-zinc-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                <LogOut className="w-5 h-5" /> Leave House
+              </button>
+              <button
+                onClick={handleLogout}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${darkMode ? 'text-zinc-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                <LogOut className="w-5 h-5" /> Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Navigation */}
+      <nav className={`hidden lg:block border-b backdrop-blur-sm transition-colors ${darkMode ? 'border-white/10 bg-zinc-950/50' : 'border-gray-200 bg-white/50'}`}>
+        <div className="max-w-7xl mx-auto px-4 lg:px-8">
+          <div className="flex gap-1">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-2 px-4 py-4 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                  activeTab === id
-                    ? 'border-black dark:border-white text-black dark:text-white'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
-                }`}
+                className={`
+                  flex items-center gap-2 px-4 py-4 border-b-2 font-medium text-sm whitespace-nowrap transition-all duration-200
+                  ${activeTab === id
+                    ? 'border-violet-500 text-violet-500'
+                    : darkMode 
+                      ? 'border-transparent text-zinc-500 hover:text-zinc-300' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }
+                `}
               >
                 <Icon className="w-4 h-4" />
                 {label}
@@ -196,47 +329,56 @@ export const Dashboard: React.FC = () => {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8 relative">
         {activeTab === 'dashboard' && (
-          <DashboardView 
+          <DashboardHome
             myPendingAssignments={myPendingAssignments}
             currentAssignments={currentAssignments}
             roommates={roommates}
             onComplete={handleComplete}
+            userData={userData}
+            assignments={assignments}
+            shoppingList={shoppingList}
+            onAddShopping={() => setShowAddShopping(true)}
+            purchaseItem={purchaseItem}
+            darkMode={darkMode}
           />
         )}
         {activeTab === 'chores' && (
-          <ChoresView 
+          <ChoresView
             chores={chores}
             assignments={assignments}
             roommates={roommates}
             onAddChore={() => setShowAddChore(true)}
+            darkMode={darkMode}
           />
         )}
         {activeTab === 'calendar' && (
-          <CalendarView assignments={assignments} roommates={roommates} />
+          <CalendarView assignments={assignments} roommates={roommates} darkMode={darkMode} />
         )}
         {activeTab === 'shopping' && (
-          <ShoppingView 
-            items={shoppingList}
-            onAddItem={() => setShowAddShopping(true)}
-            onPurchase={purchaseItem}
-          />
+          <div className={`p-8 text-center rounded-2xl border ${darkMode ? 'glass-card border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}>
+            <ShoppingCart className={`w-16 h-16 mx-auto mb-4 ${darkMode ? 'text-zinc-700' : 'text-gray-300'}`} />
+            <h3 className={`text-xl font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Shopping View</h3>
+            <p className={`mb-6 ${darkMode ? 'text-zinc-500' : 'text-gray-500'}`}>Use the shopping list in the dashboard</p>
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-semibold rounded-xl"
+            >
+              Go to Dashboard
+            </button>
+          </div>
         )}
         {activeTab === 'leaderboard' && (
-          <LeaderboardView roommates={roommates} assignments={assignments} />
+          <LeaderboardView roommates={roommates} assignments={assignments} darkMode={darkMode} />
         )}
         {activeTab === 'history' && (
-          <HistoryView assignments={assignments} roommates={roommates} />
+          <HistoryView assignments={assignments} roommates={roommates} darkMode={darkMode} />
         )}
       </main>
 
-      {/* Add Chore Modal */}
-      {showAddChore && (
-        <AddChoreModal onClose={() => setShowAddChore(false)} />
-      )}
-
-      {/* Add Shopping Modal */}
+      {/* Modals */}
+      {showAddChore && <AddChoreModal onClose={() => setShowAddChore(false)} />}
       {showAddShopping && (
         <AddShoppingModal onClose={() => setShowAddShopping(false)} onAdd={addShoppingItem} />
       )}
@@ -244,729 +386,26 @@ export const Dashboard: React.FC = () => {
   );
 };
 
-// Sub-components
-const DashboardView: React.FC<{
-  myPendingAssignments: Assignment[];
-  currentAssignments: Assignment[];
-  roommates: User[];
-  onComplete: (id: string) => void;
-}> = ({ myPendingAssignments, currentAssignments, roommates, onComplete }) => {
-  const getUserName = (userId: string) => roommates.find(r => r.id === userId)?.name || 'Unknown';
+// Global styles for glass card
+const style = document.createElement('style');
+style.textContent = `
+  .glass-card {
+    background: rgba(24, 24, 27, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+  }
 
-  return (
-    <div className="space-y-8">
-      {/* My Tasks */}
-      <section>
-        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-          Your Tasks This Week
-        </h2>
-        {myPendingAssignments.length === 0 ? (
-          <div className="border border-gray-200 dark:border-gray-800 p-8 text-center">
-            <CheckCircle2 className="w-8 h-8 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">All caught up! No pending chores.</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {myPendingAssignments.map(assignment => (
-              <div key={assignment.id} className="border-2 border-black dark:border-white p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-black dark:text-white">{assignment.choreName}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      Due {format(assignment.weekEnd, 'MMM d')}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => onComplete(assignment.id)}
-                    className="p-2 bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* This Week's Schedule */}
-      <section>
-        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-          This Week's Schedule
-        </h2>
-        <div className="border border-gray-200 dark:border-gray-800">
-          {currentAssignments.length === 0 ? (
-            <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-              No assignments scheduled
-            </div>
-          ) : (
-            currentAssignments.map((assignment, idx) => (
-              <div 
-                key={assignment.id} 
-                className={`flex items-center justify-between p-4 ${idx !== currentAssignments.length - 1 ? 'border-b border-gray-200 dark:border-gray-800' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 ${assignment.status === 'completed' ? 'bg-black dark:bg-white' : 'bg-gray-300 dark:bg-gray-700'}`} />
-                  <span className="font-medium text-black dark:text-white">{assignment.choreName}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{getUserName(assignment.userId)}</span>
-                  {assignment.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-black dark:text-white" />}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-    </div>
-  );
-};
-
-const ChoresView: React.FC<{
-  chores: Chore[];
-  assignments: Assignment[];
-  roommates: User[];
-  onAddChore: () => void;
-}> = ({ chores, assignments, roommates, onAddChore }) => {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-          House Chores
-        </h2>
-        <button 
-          onClick={onAddChore} 
-          className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black font-medium flex items-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Chore
-        </button>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {chores.map(chore => {
-          const recentAssignments = assignments
-            .filter(a => a.choreId === chore.id)
-            .sort((a, b) => b.weekStart.getTime() - a.weekStart.getTime())
-            .slice(0, 4);
-
-          return (
-            <div key={chore.id} className="border border-gray-200 dark:border-gray-800 p-5">
-              <div className="flex items-start justify-between mb-3">
-                <h3 className="font-semibold text-black dark:text-white">{chore.name}</h3>
-                <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  {chore.category.replace('_', ' ')}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{chore.description}</p>
-              
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                  Recent
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {recentAssignments.map((assignment, idx) => {
-                    const user = roommates.find(r => r.id === assignment.userId);
-                    return (
-                      <div
-                        key={idx}
-                        className={`w-8 h-8 flex items-center justify-center text-xs font-medium ${
-                          assignment.status === 'completed'
-                            ? 'bg-black dark:bg-white text-white dark:text-black'
-                            : 'bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400'
-                        }`}
-                        title={`${user?.name} - ${format(assignment.weekStart, 'MMM d')}`}
-                      >
-                        {user?.name?.charAt(0).toUpperCase()}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const CalendarView: React.FC<{
-  assignments: Assignment[];
-  roommates: User[];
-}> = ({ assignments, roommates }) => {
-  const weeks = Array.from({ length: 4 }, (_, i) => {
-    const start = addWeeks(startOfWeek(new Date(), { weekStartsOn: 1 }), i);
-    const end = endOfWeek(start, { weekStartsOn: 1 });
-    return { start, end, assignments: assignments.filter(a => 
-      isWithinInterval(a.weekStart, { start, end: addWeeks(start, 1) })
-    )};
-  });
-
-  const getUserName = (userId: string) => roommates.find(r => r.id === userId)?.name || 'Unknown';
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        Upcoming Schedule
-      </h2>
-      
-      <div className="space-y-4">
-        {weeks.map((week, idx) => (
-          <div key={idx} className="border border-gray-200 dark:border-gray-800">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
-              <h3 className="font-semibold text-black dark:text-white">
-                Week of {format(week.start, 'MMM d')} - {format(week.end, 'MMM d')}
-              </h3>
-            </div>
-            <div>
-              {week.assignments.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-sm p-4">No assignments scheduled</p>
-              ) : (
-                week.assignments.map((assignment, aidx) => (
-                  <div 
-                    key={assignment.id} 
-                    className={`flex items-center justify-between p-4 ${aidx !== week.assignments.length - 1 ? 'border-b border-gray-200 dark:border-gray-800' : ''}`}
-                  >
-                    <span className="text-black dark:text-white">{assignment.choreName}</span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{getUserName(assignment.userId)}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const ShoppingView: React.FC<{
-  items: ShoppingItem[];
-  onAddItem: () => void;
-  onPurchase: (id: string) => void;
-}> = ({ items, onAddItem, onPurchase }) => {
-  const pendingItems = items.filter(i => i.status === 'pending');
-  const purchasedItems = items.filter(i => i.status === 'purchased').slice(0, 5);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-          Shopping List
-        </h2>
-        <button 
-          onClick={onAddItem} 
-          className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black font-medium flex items-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Item
-        </button>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <h3 className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
-            Needed
-          </h3>
-          <div className="border border-gray-200 dark:border-gray-800">
-            {pendingItems.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-sm p-4">No items needed</p>
-            ) : (
-              pendingItems.map((item, idx) => (
-                <div 
-                  key={item.id} 
-                  className={`flex items-center justify-between p-4 ${idx !== pendingItems.length - 1 ? 'border-b border-gray-200 dark:border-gray-800' : ''}`}
-                >
-                  <div>
-                    <span className="font-medium text-black dark:text-white">{item.name}</span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">x{item.quantity}</span>
-                  </div>
-                  <button
-                    onClick={() => onPurchase(item.id)}
-                    className="p-2 bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
-            Recently Purchased
-          </h3>
-          <div className="border border-gray-200 dark:border-gray-800 opacity-60">
-            {purchasedItems.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-sm p-4">No recent purchases</p>
-            ) : (
-              purchasedItems.map((item, idx) => (
-                <div 
-                  key={item.id} 
-                  className={`flex items-center justify-between p-4 ${idx !== purchasedItems.length - 1 ? 'border-b border-gray-200 dark:border-gray-800' : ''}`}
-                >
-                  <span className="font-medium text-black dark:text-white line-through">{item.name}</span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">x{item.quantity}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const LeaderboardView: React.FC<{
-  roommates: User[];
-  assignments: Assignment[];
-}> = ({ roommates, assignments }) => {
-  const sortedRoommates = [...roommates].sort((a, b) => (b.totalCompleted || 0) - (a.totalCompleted || 0));
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        Leaderboard
-      </h2>
-      
-      <div className="space-y-0 border border-gray-200 dark:border-gray-800">
-        {sortedRoommates.map((roommate, idx) => {
-          const completedCount = assignments.filter(a => a.userId === roommate.id && a.status === 'completed').length;
-          const isTop = idx === 0;
-          
-          return (
-            <div 
-              key={roommate.id} 
-              className={`flex items-center gap-4 p-4 ${idx !== sortedRoommates.length - 1 ? 'border-b border-gray-200 dark:border-gray-800' : ''} ${isTop ? 'bg-gray-50 dark:bg-gray-900' : ''}`}
-            >
-              <div className={`w-10 h-10 flex items-center justify-center font-bold text-sm ${
-                idx === 0 ? 'bg-black dark:bg-white text-white dark:text-black' :
-                idx === 1 ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-black' :
-                idx === 2 ? 'bg-gray-600 dark:bg-gray-400 text-white dark:text-black' :
-                'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-              }`}>
-                {idx + 1}
-              </div>
-              
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-black dark:text-white">{roommate.name}</span>
-                  {isTop && <Trophy className="w-4 h-4 text-black dark:text-white" />}
-                  {roommate.streak > 0 && (
-                    <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                      <Flame className="w-3 h-3" /> {roommate.streak} week streak
-                    </span>
-                  )}
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-800 h-1 mt-2">
-                  <div 
-                    className="bg-black dark:bg-white h-1 transition-all"
-                    style={{ width: `${Math.min((completedCount / 10) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-              
-              <div className="text-right">
-                <span className="text-2xl font-bold text-black dark:text-white">{completedCount}</span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">done</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const HistoryView: React.FC<{
-  assignments: Assignment[];
-  roommates: User[];
-}> = ({ assignments, roommates }) => {
-  const getUserName = (userId: string) => roommates.find(r => r.id === userId)?.name || 'Unknown';
-  const getUserInitial = (userId: string) => roommates.find(r => r.id === userId)?.name?.charAt(0).toUpperCase() || '?';
-  
-  const completedAssignments = assignments
-    .filter(a => a.status === 'completed')
-    .sort((a, b) => (b.completedAt?.getTime() || 0) - (a.completedAt?.getTime() || 0));
-
-  const groupedByDate = completedAssignments.reduce((groups, assignment) => {
-    const date = assignment.completedAt ? format(assignment.completedAt, 'yyyy-MM-dd') : 'Unknown';
-    if (!groups[date]) groups[date] = [];
-    groups[date].push(assignment);
-    return groups;
-  }, {} as Record<string, Assignment[]>);
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        Task Completion History
-      </h2>
-      
-      {completedAssignments.length === 0 ? (
-        <div className="border border-gray-200 dark:border-gray-800 p-8 text-center">
-          <History className="w-8 h-8 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No completed tasks yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {Object.entries(groupedByDate).map(([date, dayAssignments]) => (
-            <div key={date} className="border border-gray-200 dark:border-gray-800">
-              <div className="p-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
-                <h3 className="font-medium text-black dark:text-white">
-                  {date === 'Unknown' ? 'Unknown Date' : format(new Date(date), 'EEEE, MMMM d, yyyy')}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {dayAssignments.length} task{dayAssignments.length !== 1 ? 's' : ''} completed
-                </p>
-              </div>
-              <div>
-                {dayAssignments.map((assignment, idx) => (
-                  <div 
-                    key={assignment.id} 
-                    className={`flex items-center gap-4 p-4 ${idx !== dayAssignments.length - 1 ? 'border-b border-gray-200 dark:border-gray-800' : ''}`}
-                  >
-                    <div className="w-10 h-10 bg-black dark:bg-white flex items-center justify-center text-white dark:text-black font-semibold text-sm">
-                      {getUserInitial(assignment.userId)}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-black dark:text-white">{assignment.choreName}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Completed by {getUserName(assignment.userId)}
-                        {assignment.completedAt && (
-                          <span> at {format(assignment.completedAt, 'h:mm a')}</span>
-                        )}
-                      </p>
-                    </div>
-                    <CheckCircle2 className="w-5 h-5 text-black dark:text-white" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const AddChoreModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { addChore, roommates } = useHouse();
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('kitchen');
-  const [description, setDescription] = useState('');
-  const [estimatedTime, setEstimatedTime] = useState(30);
-  const [frequency, setFrequency] = useState<'once' | 'daily' | 'weekly' | 'monthly' | 'custom'>('weekly');
-  const [repeatDays, setRepeatDays] = useState<number[]>([]);
-  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState('');
-  const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
-  const [assignedTo, setAssignedTo] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-
-  const weekDays = [
-    { value: 0, label: 'Sun' },
-    { value: 1, label: 'Mon' },
-    { value: 2, label: 'Tue' },
-    { value: 3, label: 'Wed' },
-    { value: 4, label: 'Thu' },
-    { value: 5, label: 'Fri' },
-    { value: 6, label: 'Sat' },
-  ];
-
-  const toggleDay = (day: number) => {
-    setRepeatDays(prev => 
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
-    );
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    await addChore({ 
-      name, 
-      category: category as any, 
-      description, 
-      estimatedTime,
-      frequency,
-      repeatDays: repeatDays.length > 0 ? repeatDays : undefined,
-      startDate: new Date(startDate),
-      endDate: endDate ? new Date(endDate) : undefined,
-      priority,
-      assignedTo: assignedTo || undefined,
-    });
-    setLoading(false);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-800 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-black dark:text-white">Add New Chore</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
-            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-          </button>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              Name
-            </label>
-            <input 
-              type="text" 
-              value={name} 
-              onChange={e => setName(e.target.value)} 
-              className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors"
-              required 
-            />
-          </div>
-          
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              Category
-            </label>
-            <select 
-              value={category} 
-              onChange={e => setCategory(e.target.value)} 
-              className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors"
-            >
-              <option value="kitchen">Kitchen</option>
-              <option value="bathroom">Bathroom</option>
-              <option value="living_room">Living Room</option>
-              <option value="bedroom">Bedroom</option>
-              <option value="trash">Trash</option>
-              <option value="outdoor">Outdoor</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              Description
-            </label>
-            <textarea 
-              value={description} 
-              onChange={e => setDescription(e.target.value)} 
-              className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors resize-none"
-              rows={3}
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                Priority
-              </label>
-              <select 
-                value={priority} 
-                onChange={e => setPriority(e.target.value as any)} 
-                className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                Assign To (Optional)
-              </label>
-              <select 
-                value={assignedTo} 
-                onChange={e => setAssignedTo(e.target.value)} 
-                className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors"
-              >
-                <option value="">Rotate (Auto)</option>
-                {roommates.map(r => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              Estimated Time: {estimatedTime} min
-            </label>
-            <input 
-              type="range" 
-              min="5" 
-              max="120" 
-              step="5" 
-              value={estimatedTime} 
-              onChange={e => setEstimatedTime(Number(e.target.value))} 
-              className="w-full accent-black dark:accent-white"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              Frequency
-            </label>
-            <select 
-              value={frequency} 
-              onChange={e => setFrequency(e.target.value as any)} 
-              className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors"
-            >
-              <option value="once">One Time</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="custom">Custom Days</option>
-            </select>
-          </div>
-          
-          {frequency === 'custom' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                Repeat On
-              </label>
-              <div className="flex gap-2">
-                {weekDays.map(day => (
-                  <button
-                    key={day.value}
-                    type="button"
-                    onClick={() => toggleDay(day.value)}
-                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                      repeatDays.includes(day.value)
-                        ? 'bg-black dark:bg-white text-white dark:text-black'
-                        : 'bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800'
-                    }`}
-                  >
-                    {day.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                Start Date
-              </label>
-              <input 
-                type="date" 
-                value={startDate} 
-                onChange={e => setStartDate(e.target.value)} 
-                className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors"
-                required 
-              />
-            </div>
-            
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                End Date (Optional)
-              </label>
-              <input 
-                type="date" 
-                value={endDate} 
-                onChange={e => setEndDate(e.target.value)} 
-                className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors"
-              />
-            </div>
-          </div>
-          
-          <div className="flex gap-3 pt-4">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="flex-1 py-3 border border-gray-200 dark:border-gray-800 text-black dark:text-white font-medium hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-              disabled={loading} 
-              className="flex-1 py-3 bg-black dark:bg-white text-white dark:text-black font-medium hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Adding...' : 'Add Chore'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-const AddShoppingModal: React.FC<{ onClose: () => void; onAdd: any }> = ({ onClose, onAdd }) => {
-  const { userData } = useAuth();
-  const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    await onAdd({
-      name,
-      quantity,
-      requestedBy: userData?.id,
-      requestedByName: userData?.name,
-    });
-    setLoading(false);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-800 w-full max-w-md">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-black dark:text-white">Add Shopping Item</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
-            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-          </button>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              Item Name
-            </label>
-            <input 
-              type="text" 
-              value={name} 
-              onChange={e => setName(e.target.value)} 
-              className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors"
-              placeholder="e.g., Dish soap"
-              required 
-            />
-          </div>
-          
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              Quantity
-            </label>
-            <input 
-              type="number" 
-              min="1" 
-              value={quantity} 
-              onChange={e => setQuantity(Number(e.target.value))} 
-              className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-gray-200 dark:border-gray-700 text-black dark:text-white focus:border-black dark:focus:border-white focus:outline-none transition-colors"
-              required 
-            />
-          </div>
-          
-          <div className="flex gap-3 pt-4">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="flex-1 py-3 border border-gray-200 dark:border-gray-800 text-black dark:text-white font-medium hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-              disabled={loading} 
-              className="flex-1 py-3 bg-black dark:bg-white text-white dark:text-black font-medium hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Adding...' : 'Add Item'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+document.head.appendChild(style);
