@@ -5,6 +5,7 @@ import { format, startOfMonth, startOfWeek, isSameMonth, isSameDay, addMonths, s
 interface CalendarProps {
   assignments: any[];
   onDateSelect?: (date: Date) => void;
+  darkMode?: boolean;
 }
 
 export const MiniCalendar: React.FC<CalendarProps> = ({ assignments, onDateSelect }) => {

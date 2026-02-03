@@ -15,6 +15,8 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   assignments,
   darkMode = true,
 }) => {
+  // darkMode prop available for future theming
+  void darkMode;
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

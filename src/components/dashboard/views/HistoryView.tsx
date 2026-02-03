@@ -14,6 +14,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   roommates,
   darkMode = true,
 }) => {
+  // darkMode prop available for future theming
+  void darkMode;
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

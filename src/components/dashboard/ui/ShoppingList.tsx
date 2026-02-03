@@ -87,15 +87,10 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
 };
 
 interface ShoppingListProps {
-  items: Array<{
-    id: string;
-    name: string;
-    quantity: number;
-    requestedByName: string;
-    status: 'pending' | 'purchased';
-  }>;
+  items: any[];
   onAddItem: () => void;
   onPurchase: (id: string) => void;
+  darkMode?: boolean;
 }
 
 export const ShoppingList: React.FC<ShoppingListProps> = ({ items, onAddItem, onPurchase }) => {

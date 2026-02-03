@@ -62,6 +62,7 @@ interface TaskCardProps {
   onComplete: () => void;
   isCompleted?: boolean;
   estimatedTime?: number;
+  darkMode?: boolean;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
