@@ -26,9 +26,19 @@ service cloud.firestore {
 
     // Houses collection
     match /houses/{houseId} {
-      allow read: if isInHouse(houseId);
+      // Allow reading if user is in the house OR if querying by invite code to join
+      allow read: if isAuthenticated() && (
+        isInHouse(houseId) || 
+        (resource.data.inviteCode != null && request.query.limit <= 1)
+      );
       allow create: if isAuthenticated();
-      allow update: if isInHouse(houseId);
+      // Allow update if user is in the house OR joining via invite code
+      allow update: if isAuthenticated() && (
+        isInHouse(houseId) || 
+        (resource.data.inviteCode != null && 
+         request.resource.data.roommates.hasAll(resource.data.roommates) &&
+         request.resource.data.roommates.hasAny([request.auth.uid]))
+      );
       allow delete: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
     }
 
