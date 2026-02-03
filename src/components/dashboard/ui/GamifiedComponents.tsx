@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Flame } from 'lucide-react';
 import { animateCounter } from '../../../lib/animations';
-import { gsap } from 'gsap';
+import { gsap } from 'gsap/dist/gsap';
 
 interface AchievementBadgeProps {
   icon: string;

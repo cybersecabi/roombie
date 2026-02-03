@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Plus, ShoppingCart, Check, Sparkles } from 'lucide-react';
 import { celebrate } from '../../../lib/animations';
-import { gsap } from 'gsap';
+import { gsap } from 'gsap/dist/gsap';
 
 interface ShoppingItemCardProps {
   name: string;
