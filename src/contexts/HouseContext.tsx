@@ -278,9 +278,32 @@ export const HouseProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     
     let snapshot;
     try {
+      // First try: direct match with uppercase
       const q = query(collection(db, 'houses'), where('inviteCode', '==', trimmedCode));
       snapshot = await getDocs(q);
-      console.log('[HouseContext] Query completed. Found', snapshot.size, 'houses');
+      console.log('[HouseContext] Query (uppercase) completed. Found', snapshot.size, 'houses');
+      
+      // If not found, try lowercase
+      if (snapshot.empty) {
+        console.log('[HouseContext] Trying lowercase search...');
+        const qLower = query(collection(db, 'houses'), where('inviteCode', '==', trimmedCode.toLowerCase()));
+        const snapshotLower = await getDocs(qLower);
+        if (!snapshotLower.empty) {
+          snapshot = snapshotLower;
+          console.log('[HouseContext] Found with lowercase');
+        }
+      }
+      
+      // If still not found, try original case
+      if (snapshot.empty && inviteCode.trim() !== trimmedCode) {
+        console.log('[HouseContext] Trying original case...');
+        const qOriginal = query(collection(db, 'houses'), where('inviteCode', '==', inviteCode.trim()));
+        const snapshotOriginal = await getDocs(qOriginal);
+        if (!snapshotOriginal.empty) {
+          snapshot = snapshotOriginal;
+          console.log('[HouseContext] Found with original case');
+        }
+      }
     } catch (queryError) {
       console.error('[HouseContext] Firestore query failed:', queryError);
       throw new Error('Failed to search for house. Please check your connection and try again.');
@@ -288,12 +311,14 @@ export const HouseProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     
     if (snapshot.empty) {
       console.error('[HouseContext] No house found with invite code:', trimmedCode);
+      console.error('[HouseContext] Searched uppercase, lowercase, and original');
       throw new Error('Invalid invite code. Please check the code and try again.');
     }
     
     const houseDoc = snapshot.docs[0];
     const houseId = houseDoc.id;
     const houseData = houseDoc.data() as House;
+    console.log('[HouseContext] Found house inviteCode in DB:', houseData.inviteCode);
     
     console.log('[HouseContext] Found house:', redactId(houseId), 'Name:', houseData.name);
     
