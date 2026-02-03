@@ -363,5 +363,5 @@ export const textReveal = (element: Element, options?: {
  * Cleanup all ScrollTrigger instances
  */
 export const cleanupScrollTriggers = () => {
-  ScrollTrigger.getAll().forEach(trigger => trigger.kill());
+  ScrollTrigger.getAll().forEach((trigger: { kill(): void }) => trigger.kill());
 };
