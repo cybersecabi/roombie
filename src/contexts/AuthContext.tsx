@@ -19,6 +19,8 @@ interface AuthContextType {
   signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
+  /** Updates local user data state (only allows houseId updates) */
+  updateUserData: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,24 +39,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   const fetchUserData = async (user: FirebaseUser) => {
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    if (userDoc.exists()) {
-      setUserData({ id: userDoc.id, ...userDoc.data() } as User);
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        setUserData({ id: userDoc.id, ...userDoc.data() } as User);
+      } else {
+        console.warn('[AuthContext] User document not found for:', user.uid);
+        setUserData(null);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error fetching user data:', error);
+      setUserData(null);
     }
   };
 
   useEffect(() => {
+    let isMounted = true;
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!isMounted) return;
+      
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
       } else {
         setUserData(null);
       }
-      setLoading(false);
+      
+      if (isMounted) {
+        setLoading(false);
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -71,6 +91,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       streak: 0,
       totalCompleted: 0,
       createdAt: new Date(),
+      houseId: null,
     };
     
     await setDoc(doc(db, 'users', user.uid), {
@@ -92,6 +113,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateUserData = (updates: Partial<User>) => {
+    if (Object.keys(updates).length === 0) {
+      console.warn('[AuthContext] updateUserData called with empty updates');
+      return;
+    }
+    
+    if (!userData) {
+      console.warn('[AuthContext] updateUserData called with null userData, ignoring:', updates);
+      return;
+    }
+    
+    const allowedFields = ['houseId'];
+    const invalidFields = Object.keys(updates).filter(key => !allowedFields.includes(key));
+    if (invalidFields.length > 0) {
+      console.warn('[AuthContext] Attempted to update protected fields:', invalidFields);
+      return;
+    }
+    
+    if ('houseId' in updates) {
+      const houseIdValue = updates.houseId;
+      if (houseIdValue !== null && houseIdValue !== undefined && typeof houseIdValue !== 'string') {
+        console.warn('[AuthContext] Invalid houseId type:', typeof houseIdValue);
+        return;
+      }
+    }
+    
+    setUserData({ ...userData, ...updates });
+  };
+
   const value = {
     currentUser,
     userData,
@@ -100,6 +150,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     signup,
     logout,
     refreshUserData,
+    updateUserData,
   };
 
   return (
