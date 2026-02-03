@@ -1,7 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Plus, ShoppingCart, Check, Sparkles } from 'lucide-react';
 import { celebrate } from '../../../lib/animations';
-import { gsap } from 'gsap/dist/gsap';
 
 interface ShoppingItemCardProps {
   name: string;
@@ -23,13 +22,16 @@ export const ShoppingItemCard: React.FC<ShoppingItemCardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const checkRef = useRef<HTMLButtonElement>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (cardRef.current) {
-      gsap.fromTo(
-        cardRef.current,
-        { opacity: 0, x: -20 },
-        { opacity: 1, x: 0, duration: 0.4, delay, ease: 'power2.out' }
-      );
+      const el = cardRef.current;
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(-20px)';
+      el.style.transition = `opacity 0.4s ease ${delay}s, transform 0.4s ease ${delay}s`;
+      requestAnimationFrame(() => {
+        el.style.opacity = '1';
+        el.style.transform = 'translateX(0)';
+      });
     }
   }, [delay]);
 
@@ -175,20 +177,12 @@ interface AddShoppingButtonProps {
 }
 
 export const AddShoppingButton: React.FC<AddShoppingButtonProps> = ({ onClick, className = '' }) => {
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
   const handleClick = () => {
-    if (buttonRef.current) {
-      const tl = gsap.timeline();
-      tl.to(buttonRef.current, { scale: 0.95, duration: 0.1 })
-        .to(buttonRef.current, { scale: 1, duration: 0.15, ease: 'back.out(1.7)' });
-    }
     onClick();
   };
 
   return (
     <button
-      ref={buttonRef}
       onClick={handleClick}
       className={`
         px-4 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600

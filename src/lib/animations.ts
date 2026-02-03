@@ -1,7 +1,5 @@
-import { gsap } from 'gsap/dist/gsap';
-import { ScrollTrigger } from 'gsap/dist/ScrollTrigger';
-
-gsap.registerPlugin(ScrollTrigger);
+// Animation utilities using CSS transitions instead of GSAP
+// This avoids GSAP import issues in production builds
 
 // Easing presets for consistent motion
 export const easing = {
@@ -11,7 +9,7 @@ export const easing = {
   bounce: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
 };
 
-// Duration presets
+// Duration presets (in seconds for CSS, milliseconds for JS)
 export const duration = {
   instant: 0.1,
   fast: 0.15,
@@ -22,7 +20,7 @@ export const duration = {
 };
 
 /**
- * Fade up animation for elements entering the screen
+ * Fade up animation for elements
  */
 export const fadeUp = (element: Element | Element[], options?: {
   y?: number;
@@ -36,21 +34,21 @@ export const fadeUp = (element: Element | Element[], options?: {
     opacity = 0,
     duration: dur = 0.6,
     delay: del = 0,
-    stagger: st = 0,
   } = options || {};
 
-  return gsap.fromTo(
-    element,
-    { y, opacity },
-    {
-      y: 0,
-      opacity: 1,
-      duration: dur,
-      delay: del,
-      stagger: st,
-      ease: 'power3.out',
-    }
-  );
+  const elements = Array.isArray(element) ? element : [element];
+
+  elements.forEach((el, index) => {
+    const htmlEl = el as HTMLElement;
+    htmlEl.style.opacity = String(opacity);
+    htmlEl.style.transform = `translateY(${y}px)`;
+    htmlEl.style.transition = `opacity ${dur}s ease ${del + index * 0.08}s, transform ${dur}s ease ${del + index * 0.08}s`;
+
+    requestAnimationFrame(() => {
+      htmlEl.style.opacity = '1';
+      htmlEl.style.transform = 'translateY(0)';
+    });
+  });
 };
 
 /**
@@ -60,26 +58,24 @@ export const fadeIn = (element: Element | Element[], options?: {
   opacity?: number;
   duration?: number;
   delay?: number;
-  stagger?: number;
 }) => {
   const {
     opacity = 0,
     duration: dur = 0.5,
     delay: del = 0,
-    stagger: st = 0,
   } = options || {};
 
-  return gsap.fromTo(
-    element,
-    { opacity },
-    {
-      opacity: 1,
-      duration: dur,
-      delay: del,
-      stagger: st,
-      ease: 'power2.out',
-    }
-  );
+  const elements = Array.isArray(element) ? element : [element];
+
+  elements.forEach((el) => {
+    const htmlEl = el as HTMLElement;
+    htmlEl.style.opacity = String(opacity);
+    htmlEl.style.transition = `opacity ${dur}s ease ${del}s`;
+
+    requestAnimationFrame(() => {
+      htmlEl.style.opacity = '1';
+    });
+  });
 };
 
 /**
@@ -96,17 +92,15 @@ export const scaleIn = (element: Element, options?: {
     delay: del = 0,
   } = options || {};
 
-  return gsap.fromTo(
-    element,
-    { scale, opacity: 0 },
-    {
-      scale: 1,
-      opacity: 1,
-      duration: dur,
-      delay: del,
-      ease: 'back.out(1.7)',
-    }
-  );
+  const htmlEl = element as HTMLElement;
+  htmlEl.style.opacity = '0';
+  htmlEl.style.transform = `scale(${scale})`;
+  htmlEl.style.transition = `opacity ${dur}s ease ${del}s, transform ${dur}s cubic-bezier(0.34, 1.56, 0.64, 1) ${del}s`;
+
+  requestAnimationFrame(() => {
+    htmlEl.style.opacity = '1';
+    htmlEl.style.transform = 'scale(1)';
+  });
 };
 
 /**
@@ -125,17 +119,17 @@ export const staggerReveal = (items: Element[], options?: {
     stagger: st = 0.08,
   } = options || {};
 
-  return gsap.fromTo(
-    items,
-    { y, opacity },
-    {
-      y: 0,
-      opacity: 1,
-      duration: dur,
-      stagger: st,
-      ease: 'power3.out',
-    }
-  );
+  items.forEach((el, index) => {
+    const htmlEl = el as HTMLElement;
+    htmlEl.style.opacity = String(opacity);
+    htmlEl.style.transform = `translateY(${y}px)`;
+    htmlEl.style.transition = `opacity ${dur}s ease ${index * st}s, transform ${dur}s ease ${index * st}s`;
+
+    requestAnimationFrame(() => {
+      htmlEl.style.opacity = '1';
+      htmlEl.style.transform = 'translateY(0)';
+    });
+  });
 };
 
 /**
@@ -150,17 +144,26 @@ export const animateCounter = (element: Element, target: number, options?: {
     delay: del = 0,
   } = options || {};
 
-  const obj = { value: 0 };
+  const htmlEl = element as HTMLElement;
+  let startTime: number | null = null;
+  let animationId: number;
 
-  return gsap.to(obj, {
-    value: target,
-    duration: dur,
-    delay: del,
-    ease: 'power2.out',
-    onUpdate: () => {
-      (element as HTMLElement).textContent = Math.round(obj.value).toString();
-    },
-  });
+  setTimeout(() => {
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / (dur * 1000), 1);
+      const easeProgress = 1 - Math.pow(1 - progress, 2);
+      htmlEl.textContent = Math.round(easeProgress * target).toString();
+
+      if (progress < 1) {
+        animationId = requestAnimationFrame(animate);
+      }
+    };
+
+    animationId = requestAnimationFrame(animate);
+  }, del * 1000);
+
+  return () => cancelAnimationFrame(animationId);
 };
 
 /**
@@ -169,151 +172,110 @@ export const animateCounter = (element: Element, target: number, options?: {
 export const animateProgress = (element: Element, target: number, options?: {
   duration?: number;
   delay?: number;
-  ease?: string;
 }) => {
   const {
     duration: dur = 1,
     delay: del = 0,
-    ease: easeFn = 'power3.out',
   } = options || {};
 
-  return gsap.fromTo(
-    element,
-    { width: '0%' },
-    {
-      width: `${Math.min(target, 100)}%`,
-      duration: dur,
-      delay: del,
-      ease: easeFn,
-    }
-  );
+  const htmlEl = element as HTMLElement;
+  htmlEl.style.width = '0%';
+  htmlEl.style.transition = `width ${dur}s ease ${del}s`;
+
+  requestAnimationFrame(() => {
+    htmlEl.style.width = `${Math.min(target, 100)}%`;
+  });
 };
 
 /**
  * Completion celebration animation
  */
 export const celebrate = (element: Element) => {
-  const tl = gsap.timeline();
+  const htmlEl = element as HTMLElement;
+  htmlEl.style.transform = 'scale(1.2)';
+  htmlEl.style.transition = 'transform 0.15s ease';
 
-  // Burst effect
-  tl.to(element, {
-    scale: 1.2,
-    duration: 0.15,
-    ease: 'power2.out',
-  })
-    .to(element, {
-      scale: 1,
-      duration: 0.2,
-      ease: 'elastic.out(1, 0.5)',
-    });
-
-  return tl;
+  setTimeout(() => {
+    htmlEl.style.transform = 'scale(1)';
+  }, 150);
 };
 
 /**
- * Card hover lift effect
+ * Card hover lift effect - applies CSS classes
  */
 export const cardHover = (element: Element, direction: 'enter' | 'leave') => {
+  const htmlEl = element as HTMLElement;
   if (direction === 'enter') {
-    return gsap.to(element, {
-      y: -4,
-      boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
-      duration: 0.3,
-      ease: 'power2.out',
-    });
+    htmlEl.style.transform = 'translateY(-4px)';
+    htmlEl.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.3)';
+  } else {
+    htmlEl.style.transform = 'translateY(0)';
+    htmlEl.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.12)';
   }
-  return gsap.to(element, {
-    y: 0,
-    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
-    duration: 0.3,
-    ease: 'power2.in',
-  });
+  htmlEl.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
 };
 
 /**
  * Button press effect
  */
 export const buttonPress = (element: Element) => {
-  const tl = gsap.timeline();
+  const htmlEl = element as HTMLElement;
+  htmlEl.style.transform = 'scale(0.95)';
+  htmlEl.style.transition = 'transform 0.1s ease';
 
-  tl.to(element, {
-    scale: 0.95,
-    duration: 0.1,
-    ease: 'power2.in',
-  })
-    .to(element, {
-      scale: 1,
-      duration: 0.15,
-      ease: 'power2.out',
+  setTimeout(() => {
+    htmlEl.style.transform = 'scale(1)';
+  }, 100);
+};
+
+/**
+ * Scroll-triggered fade up - stub, using IntersectionObserver instead
+ */
+export const scrollFadeUp = (element: Element) => {
+  const htmlEl = element as HTMLElement;
+  htmlEl.style.opacity = '0';
+  htmlEl.style.transform = 'translateY(60px)';
+  htmlEl.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        htmlEl.style.opacity = '1';
+        htmlEl.style.transform = 'translateY(0)';
+        observer.unobserve(entry.target);
+      }
     });
+  }, { threshold: 0.15 });
 
-  return tl;
+  observer.observe(element);
 };
 
 /**
- * Scroll-triggered fade up
+ * Staggered scroll reveal - stub using IntersectionObserver
  */
-export const scrollFadeUp = (element: Element, options?: {
-  y?: number;
-  opacity?: number;
-  start?: string;
-}) => {
-  const {
-    y = 60,
-    opacity = 0,
-    start = 'top 85%',
-  } = options || {};
-
-  gsap.set(element, { y, opacity });
-
-  ScrollTrigger.create({
-    trigger: element,
-    start,
-    once: true,
-    onEnter: () => {
-      gsap.to(element, {
-        y: 0,
-        opacity: 1,
-        duration: 0.8,
-        ease: 'power3.out',
-      });
-    },
-  });
-};
-
-/**
- * Staggered scroll reveal for containers
- */
-export const scrollStaggerReveal = (container: Element, selector: string, options?: {
-  y?: number;
-  opacity?: number;
-  start?: string;
-  stagger?: number;
-}) => {
-  const {
-    y = 60,
-    opacity = 0,
-    start = 'top 80%',
-    stagger: st = 0.1,
-  } = options || {};
-
+export const scrollStaggerReveal = (container: Element, selector: string) => {
   const items = Array.from(container.querySelectorAll(selector));
-  gsap.set(items, { y, opacity });
-
-  ScrollTrigger.create({
-    trigger: container,
-    start,
-    once: true,
-    onEnter: () => {
-      gsap.to(items, {
-        y: 0,
-        opacity: 1,
-        duration: 0.6,
-        stagger: st,
-        ease: 'power3.out',
-      });
-    },
+  items.forEach((el, index) => {
+    const htmlEl = el as HTMLElement;
+    htmlEl.style.opacity = '0';
+    htmlEl.style.transform = 'translateY(60px)';
+    htmlEl.style.transition = `opacity 0.6s ease ${index * 0.1}s, transform 0.6s ease ${index * 0.1}s`;
   });
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        items.forEach((el) => {
+          const htmlEl = el as HTMLElement;
+          htmlEl.style.opacity = '1';
+          htmlEl.style.transform = 'translateY(0)';
+        });
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.2 });
+
+  observer.observe(container);
 };
 
 /**
@@ -330,38 +292,37 @@ export const textReveal = (element: Element, options?: {
     duration: dur = 0.6,
   } = options || {};
 
-  const fromProps: Record<string, number> = { opacity: 0 };
-  const toProps: Record<string, number> = { opacity: 1 };
+  const htmlEl = element as HTMLElement;
+  let transform = '';
 
   switch (direction) {
     case 'up':
-      fromProps.y = distance;
-      toProps.y = 0;
+      transform = `translateY(${distance}px)`;
       break;
     case 'down':
-      fromProps.y = -distance;
-      toProps.y = 0;
+      transform = `translateY(-${distance}px)`;
       break;
     case 'left':
-      fromProps.x = distance;
-      toProps.x = 0;
+      transform = `translateX(${distance}px)`;
       break;
     case 'right':
-      fromProps.x = -distance;
-      toProps.x = 0;
+      transform = `translateX(-${distance}px)`;
       break;
   }
 
-  return gsap.fromTo(element, fromProps, {
-    ...toProps,
-    duration: dur,
-    ease: 'power3.out',
+  htmlEl.style.opacity = '0';
+  htmlEl.style.transform = transform;
+  htmlEl.style.transition = `opacity ${dur}s ease, transform ${dur}s ease`;
+
+  requestAnimationFrame(() => {
+    htmlEl.style.opacity = '1';
+    htmlEl.style.transform = 'translate(0, 0)';
   });
 };
 
 /**
- * Cleanup all ScrollTrigger instances
+ * Cleanup - no-op since we don't use ScrollTrigger anymore
  */
 export const cleanupScrollTriggers = () => {
-  ScrollTrigger.getAll().forEach((trigger: { kill(): void }) => trigger.kill());
+  // No-op - IntersectionObservers clean themselves up
 };

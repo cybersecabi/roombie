@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Flame } from 'lucide-react';
 import { animateCounter } from '../../../lib/animations';
-import { gsap } from 'gsap/dist/gsap';
 
 interface AchievementBadgeProps {
   icon: string;
@@ -242,12 +241,14 @@ export const ActivityFeedItem: React.FC<ActivityFeedItemProps> = ({
 
   useEffect(() => {
     if (itemRef.current) {
-      const tl = gsap.timeline({ delay });
-      tl.fromTo(
-        itemRef.current,
-        { opacity: 0, x: -20 },
-        { opacity: 1, x: 0, duration: 0.4, ease: 'power2.out' }
-      );
+      const el = itemRef.current;
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(-20px)';
+      el.style.transition = `opacity 0.4s ease ${delay}s, transform 0.4s ease ${delay}s`;
+      requestAnimationFrame(() => {
+        el.style.opacity = '1';
+        el.style.transform = 'translateX(0)';
+      });
     }
   }, [delay]);
 
